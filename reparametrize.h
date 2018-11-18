@@ -4,8 +4,7 @@
 #include <limits>
 #include <tuple>
 #include "eigen3/Eigen/Core"
-
-using WorldSpace = Eigen::Matrix<double, 3, 1>;
+#include "path.h"
 
 // Find the maximum value \ell \in \R such that:
 // lb <= A(lt + n) <= ub
@@ -26,6 +25,10 @@ double maximize_linear(
         double ell_lb = lb_transformed(constraint) / coordinate;
         double ell_ub = ub_transformed(constraint) / coordinate;
 
+        if (ell_lb < 0 && ell_ub < 0) {
+            continue;
+        }
+
         if (std::isnan(ell_lb)) {
             ell_lb = -std::numeric_limits<double>::infinity();
         }
@@ -34,16 +37,7 @@ double maximize_linear(
         }
 
         ell_upper = std::min(ell_upper, std::max(ell_lb, ell_ub));
-
-        //std::cout << "CONSTRAINT: " << constraint << "\tELL: " << std::max(ell_lb, ell_ub) << "\tCOORD: " << coordinate << "\tLB: " << lb_transformed(constraint) << "\tUB: " << ub_transformed(constraint) << std::endl;
-
-        //if (ell_lb < 0 && ell_ub < 0) {
-            //std::cout << "ELL_ERR: " << coordinate << "\t\t" << lb_transformed(constraint) << "\t\t" << ub_transformed(constraint) << std::endl;
-        //} else {
-            //std::cout << "ELL_OK: " << coordinate << "\t\t" << lb_transformed(constraint) << "\t\t" << ub_transformed(constraint) << std::endl;
-        //}
     }
-    //std::cout << A * n << std::endl << "--AFD--" << std::endl;
 
     return ell_upper;
 }

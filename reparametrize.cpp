@@ -27,12 +27,12 @@ int main() {
          std::cos(theta_4), std::sin(theta_4), r * std::sin(theta_4 - M_PI * 0.25);
 
     // Maximum accelerations in wheel space.
-    Eigen::Matrix<double, 4, 1> a_max(1.0, 1.0, 1.0, 1.0);
+    Eigen::Matrix<double, 4, 1> a_max(0.1, 0.1, 0.1, 0.1);
 
-    std::vector<WorldSpace> space(50000);
+    std::vector<WorldSpace> space(5000);
 
     double total_time = 0.0;
-    int num_iterations = 10;
+    int num_iterations = 1;
 
     std::ofstream file("test.csv");
 
@@ -62,23 +62,12 @@ int main() {
             if (std::abs((M * active_acceleration)(0)) > 1.01 || std::abs((M * active_acceleration)(1)) > 1.01) {
                 std::cout << "FAIL" << std::endl;
             }
-            std::cout << M * active_acceleration << std::endl;
-            std::cout << "---" << std::endl;
             position += (space[i - 1] + space[i]) / 2.0 * dt;
             file << position(0) << "\t" << position(1) << std::endl;
-            //  std::cout << (WorldSpace(0, 1, 0) - position).norm() << std::endl << "---" << std::endl;
-            //if (i % 1 == 0) {
-                //std::cout << space[i].block<2, 1>(0, 0).norm() << std::endl;
-                //std::cout << accel << std::endl << "+++" << std::endl;
-                //std::cout << M * accel << std::endl << "+++" << std::endl;
-                //std::cout << space[i] << std::endl << "(" << max_velocity.norm() << ")---" << std::endl;
-            //}
         }
         auto diff = std::chrono::high_resolution_clock::now() - start;
         total_time += std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() / 1000.0;
-        //std::cout << space[space.size() - 1] << std::endl;
     }
     file.close();
-    std::cout << position << std::endl;
     std::cout << "Average time: " << total_time / num_iterations << std::endl;
 }
