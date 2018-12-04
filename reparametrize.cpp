@@ -27,7 +27,7 @@ int main() {
          std::cos(theta_4), std::sin(theta_4), r * std::sin(theta_4 - M_PI * 0.25);
 
     // Maximum accelerations in wheel space.
-    Eigen::Matrix<double, 4, 1> a_max(0.1, 0.1, 0.1, 0.1);
+    double a_max = 3.0;
 
     std::vector<WorldSpace> space(5000);
 
@@ -36,38 +36,8 @@ int main() {
 
     std::ofstream file("test.csv");
 
-    double curvature = 1;
-    double dt = 0.01;
-    WorldSpace position = WorldSpace::Zero();
-    for (int j = 0; j < num_iterations; j++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        space[0] = WorldSpace(.01, 0, 0);
-        for (int i = 1; i < space.size(); i++) {
-            auto accel = maximize_acceleration(space[i - 1], curvature, M, a_max);
+    WorldSpace velocity(0.0, 0.0, 0.0);
 
-            WorldSpace max_velocity, max_normal_acceleration;
-            std::tie(max_velocity, max_normal_acceleration) = maximize_velocity(space[i - 1], curvature, M, a_max);
-
-            auto accelerated_velocity = space[i - 1] + dt * accel;
-            auto max_accelerated_velocity = max_velocity + dt * max_normal_acceleration;
-
-            WorldSpace active_acceleration;
-            if (max_velocity.norm() > accelerated_velocity.norm()) {
-                space[i] = accelerated_velocity;
-                active_acceleration = accel;
-            } else {
-                space[i] = max_accelerated_velocity;
-                active_acceleration = max_normal_acceleration;
-            }
-            if (std::abs((M * active_acceleration)(0)) > 1.01 || std::abs((M * active_acceleration)(1)) > 1.01) {
-                std::cout << "FAIL" << std::endl;
-            }
-            position += (space[i - 1] + space[i]) / 2.0 * dt;
-            file << position(0) << "\t" << position(1) << std::endl;
-        }
-        auto diff = std::chrono::high_resolution_clock::now() - start;
-        total_time += std::chrono::duration_cast<std::chrono::milliseconds>(diff).count() / 1000.0;
-    }
-    file.close();
-    std::cout << "Average time: " << total_time / num_iterations << std::endl;
+    PathPlanner planner(M, a_max);
+    planner.plan(WorldSpace(0, 0, 0), WorldSpace(1, 0, 0), WorldSpace(1, 1, 0), WorldSpace(1, 0, 0));
 }
