@@ -11,9 +11,10 @@
 class PathPlanner {
     public:
         PathPlanner(Eigen::Matrix<double, 4, 3> world_to_wheel,
-                    double a_max)
+                    double a_max, double v_max = std::numeric_limits<double>::infinity())
             : world_to_wheel(world_to_wheel),
-              a_max(a_max, a_max, a_max, a_max) {}
+              a_max(a_max, a_max, a_max, a_max),
+              v_max(v_max) {}
 
         void plan(WorldSpace p0, WorldSpace v0, WorldSpace p1, WorldSpace v1) {
             generate_samples(PathSample{p0, v0, WorldSpace::Zero(), 0.0}, PathSample{p1, v1, WorldSpace::Zero(), 0.0}, 200);
@@ -23,7 +24,7 @@ class PathPlanner {
             double t = 0;
             for (int i = 0; i < samples.size() - 1; i++) {
                 t += time_deltas[i];
-                std::cout << t << " " << velocities[i].norm() << " " << exact[i] << std::endl;
+                std::cout << t << " " << velocities[i].norm() << " " << samples[i].position(0) << " " << samples[i].position(1) << " " << samples[i].position(2) << std::endl;
             }
         }
 
@@ -45,7 +46,6 @@ class PathPlanner {
 
             for (int i = 0; i < num_segments; i++) {
                 time_deltas.push_back(0);
-                exact.push_back(false);
             }
         }
 
@@ -224,11 +224,16 @@ class PathPlanner {
                         false);
 
                 assert(exact_centripetal);
-                assert(std::abs(curvature) > 1e-6);
 
                 WorldSpace net_acceleration = normal_vector * ell;
-                // a = v^2*curvature, so v = sqrt(a / curvature)
-                double speed_max = std::sqrt(std::abs(net_acceleration.norm() / curvature));
+
+                // In the case where curvature vanishes, we have unlimited speed (or v_max)
+                double speed_max = v_max;
+                if (std::abs(curvature) > 1e-6) {
+                    // a = v^2*curvature, so v = sqrt(a / curvature)
+                    speed_max = std::sqrt(std::abs(net_acceleration.norm() / curvature));
+                }
+
                 WorldSpace velocity = speed_max * direction_0_normalized;
                 double dx = (sample_0.position - sample_1.position).norm();
                 double dt = dx / speed_max;
@@ -245,8 +250,9 @@ class PathPlanner {
         Eigen::Matrix<double, 4, 3> world_to_wheel;
         Eigen::Matrix<double, 4, 1> a_max;
 
+        double v_max;
+
         std::vector<PathSample> samples;
         std::vector<WorldSpace> velocities;
         std::vector<double> time_deltas;
-        std::vector<bool> exact;
 };

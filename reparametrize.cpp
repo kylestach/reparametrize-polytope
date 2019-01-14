@@ -27,17 +27,10 @@ int main() {
          std::cos(theta_4), std::sin(theta_4), r * std::sin(theta_4 - M_PI * 0.25);
 
     // Maximum accelerations in wheel space.
-    double a_max = 3.0;
-
-    std::vector<WorldSpace> space(5000);
-
-    double total_time = 0.0;
-    int num_iterations = 1;
-
-    std::ofstream file("test.csv");
+    double a_max = 5.0;
 
     WorldSpace velocity(0.0, 0.0, 0.0);
 
     PathPlanner planner(M, a_max);
-    planner.plan(WorldSpace(0, 0, 0), WorldSpace(1, 0, 0), WorldSpace(1, 1, 0), WorldSpace(1, 0, 0));
+    planner.plan(WorldSpace(0, 0, 0), WorldSpace(0, 0, 0), WorldSpace(0, 10, 0), WorldSpace(0, 0, 0));
 }
