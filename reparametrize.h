@@ -22,9 +22,11 @@ class PathPlanner {
             backwards_pass(v1);
             forwards_pass(v0);
             double t = 0;
-            for (int i = 0; i < samples.size() - 1; i++) {
-                t += time_deltas[i];
+            for (size_t i = 0; i < samples.size(); i++) {
                 std::cout << t << " " << velocities[i].norm() << " " << samples[i].position(0) << " " << samples[i].position(1) << " " << samples[i].position(2) << std::endl;
+                if (i < samples.size() - 1) {
+                    t += time_deltas[i];
+                }
             }
         }
 
@@ -50,9 +52,11 @@ class PathPlanner {
         }
 
         void forwards_pass(WorldSpace v0) {
-            int num_segments = samples.size() - 1;
+            assert(samples.size() >= 1);
+
+            size_t num_segments = samples.size() - 1;
             velocities[0] = v0;
-            for (int i = 0; i < num_segments; i++) {
+            for (size_t i = 0; i < num_segments; i++) {
                 // Pass over segment i, from sample i to i-1
                 PathSample sample_0 = samples[i];
                 PathSample sample_1 = samples[i + 1];
@@ -116,9 +120,11 @@ class PathPlanner {
         }
 
         void backwards_pass(WorldSpace v1) {
-            int num_segments = samples.size() - 1;
+            assert(samples.size() >= 1);
+
+            size_t num_segments = samples.size() - 1;
             velocities[num_segments] = v1;
-            for (int i = num_segments; i > 0; i--) {
+            for (size_t i = num_segments; i > 0; i--) {
                 // Pass over segment i, from sample i to i-1
                 PathSample sample_0 = samples[i];
                 PathSample sample_1 = samples[i - 1];
@@ -182,24 +188,24 @@ class PathPlanner {
         }
 
         void velocity_pass() {
-            int num_segments = samples.size() - 1;
-            for (int i = 1; i < velocities.size(); i++) {
+            assert(samples.size() >= 1);
+            size_t num_segments = samples.size() - 1;
+            for (size_t i = 0; i < velocities.size(); i++) {
                 // Pass over segment i, from sample i to i-1
-                PathSample sample_0 = samples[i];
-                PathSample sample_1 = samples[i - 1];
-                double curvature = (sample_0.curvature + sample_1.curvature) / 2.0;
+                PathSample sample = samples[i];
+                double curvature = sample.curvature;
                 WorldSpace velocity_0 = velocities[i];
 
-                Eigen::Matrix<double, 3, 1> direction_0_normalized = sample_0.direction;
+                Eigen::Matrix<double, 3, 1> direction_normalized = sample.direction;
 
                 {
-                    double direction_0_norm = direction_0_normalized.block<2, 1>(0, 0).norm();
-                    if (direction_0_norm > 1e-6) {
-                        direction_0_normalized /= direction_0_norm;
+                    double direction_norm = direction_normalized.block<2, 1>(0, 0).norm();
+                    if (direction_norm > 1e-6) {
+                        direction_normalized /= direction_norm;
                     } else {
-                        direction_0_normalized = sample_0.acceleration / sample_0.acceleration.block<2, 1>(0, 0).norm();
+                        direction_normalized = sample.acceleration / sample.acceleration.block<2, 1>(0, 0).norm();
                         if (i == num_segments) {
-                            direction_0_normalized = -direction_0_normalized;
+                            direction_normalized = -direction_normalized;
                         }
                     }
                 }
@@ -207,8 +213,8 @@ class PathPlanner {
                 // Optimize for the maximum forward acceleration, or maintain the maximum
                 // velocity that we can keep without having to provide too much centripetal force.
                 WorldSpace normal_vector(
-                        -std::copysign(1, curvature) * direction_0_normalized(1),
-                        std::copysign(1, curvature) * direction_0_normalized(0), 0);
+                        -std::copysign(1, curvature) * direction_normalized(1),
+                        std::copysign(1, curvature) * direction_normalized(0), 0);
 
                 Eigen::Matrix<double, 4, 1> wheel_acceleration;
                 double ell = 0;
@@ -231,19 +237,18 @@ class PathPlanner {
                 double speed_max = v_max;
                 if (std::abs(curvature) > 1e-6) {
                     // a = v^2*curvature, so v = sqrt(a / curvature)
-                    speed_max = std::sqrt(std::abs(net_acceleration.norm() / curvature));
+                    speed_max = std::min(speed_max, std::sqrt(std::abs(net_acceleration.norm() / curvature)));
                 }
 
-                WorldSpace velocity = speed_max * direction_0_normalized;
-                double dx = (sample_0.position - sample_1.position).norm();
-                double dt = dx / speed_max;
+                WorldSpace velocity = speed_max * direction_normalized;
 
-                time_deltas[i - 1] = dt;
-
-                if (i == 1) {
-                    velocities[0] = velocity;
+                velocities[i] = velocity;
+                if (i != 0) {
+                    PathSample sample_prev = samples[i - 1];
+                    double dx = (sample.position - sample_prev.position).norm();
+                    double v_avg = (velocities[i - 1] + velocities[i]).norm() / 2.0;
+                    time_deltas[i - 1] = dx / v_avg;
                 }
-                velocities[i] = 2 * velocity - velocities[i - 1];
             }
         }
 
